@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Чат-бот</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #1e1e1e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .chat-container {
+      width: 100%;
+      max-width: 700px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: #1e1e1e;
+    }
+
+    .chat-header {
+      padding: 20px;
+      color: white;
+      font-size: 24px;
+      text-align: center;
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column-reverse;
+      padding: 10px;
+    }
+
+    .message {
+      display: flex;
+      margin: 10px 0;
+      align-items: flex-end;
+    }
+
+    .message.bot {
+      flex-direction: row;
+    }
+
+    .message.user {
+      flex-direction: row-reverse;
+    }
+
+    .bubble {
+      padding: 10px 15px;
+      border-radius: 20px;
+      max-width: 70%;
+      color: #000;
+      word-break: break-word;
+    }
+
+    .bot .bubble {
+      background: #fff;
+    }
+
+    .user .bubble {
+      background: #ffca28;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      margin: 0 10px;
+    }
+
+    .avatar img {
+      width: 100%;
+      border-radius: 50%;
+    }
+
+    .input-area {
+      display: flex;
+      padding: 10px;
+      background: #1e1e1e;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 12px 20px;
+      border-radius: 20px;
+      border: none;
+      font-size: 14px;
+      outline: none;
+    }
+
+    button {
+      background: #ffca28;
+      border: none;
+      border-radius: 50%;
+      padding: 12px;
+      margin-left: 10px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: #888;
+      cursor: not-allowed;
+    }
+
+    .dots {
+      font-size: 20px;
+      padding: 0 15px;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">Чат-бот</div>
+    <div class="messages" id="chat"></div>
+    <div class="input-area">
+      <input type="text" id="userInput" placeholder="Ок" />
+      <button id="sendBtn" disabled>➤</button>
+    </div>
+  </div>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("userInput");
+    const button = document.getElementById("sendBtn");
+
+    let state = "idle";
+    let userName = "";
+    let numbers = [];
+
+    input.addEventListener("input", () => {
+      button.disabled = input.value.trim() === "";
+    });
+
+    button.addEventListener("click", () => {
+      const msg = input.value.trim();
+      if (!msg) return;
+      appendMessage(msg, "user");
+      input.value = "";
+      button.disabled = true;
+      simulateBotTyping(() => handleCommand(msg));
+    });
+
+    function appendMessage(text, sender) {
+      const div = document.createElement("div");
+      div.className = `message ${sender}`;
+      const avatar = document.createElement("div");
+      avatar.className = "avatar";
+      avatar.innerHTML = `<img src="${sender === "bot" ? "https://cdn-icons-png.flaticon.com/512/4712/4712100.png" : "https://cdn-icons-png.flaticon.com/512/4712/4712077.png"}" />`;
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = text;
+      div.appendChild(avatar);
+      div.appendChild(bubble);
+      chat.prepend(div);
+    }
+
+    function simulateBotTyping(callback) {
+      const dotMsg = document.createElement("div");
+      dotMsg.className = "message bot";
+      const avatar = document.createElement("div");
+      avatar.className = "avatar";
+      avatar.innerHTML = `<img src="https://cdn-icons-png.flaticon.com/512/4712/4712100.png" />`;
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.innerHTML = `<span class="dots">...</span>`;
+      dotMsg.appendChild(avatar);
+      dotMsg.appendChild(bubble);
+      chat.prepend(dotMsg);
+
+      setTimeout(() => {
+        dotMsg.remove();
+        callback();
+      }, 1000);
+    }
+
+    function handleCommand(msg) {
+      if (msg === "/start") {
+        state = "started";
+        appendMessage("Привет, меня зовут Чат-бот, а как зовут тебя?", "bot");
+      } else if (msg.startsWith("/name:")) {
+        if (state !== "started") {
+          appendMessage("Введите команду /start, для начала общения", "bot");
+          return;
+        }
+        userName = msg.split(":")[1].trim();
+        state = "named";
+        appendMessage(`Привет ${userName}, приятно познакомиться. Я умею считать, введи числа которые надо посчитать`, "bot");
+      } else if (msg.startsWith("/number:")) {
+        if (state !== "named") {
+          appendMessage("Сначала представьтесь через /name: имя", "bot");
+          return;
+        }
+        const nums = msg.split(":")[1].split(",").map(n => parseFloat(n.trim()));
+        if (nums.length !== 2 || nums.some(isNaN)) {
+          appendMessage("Введите два числа через запятую, например: /number: 7, 9", "bot");
+          return;
+        }
+        numbers = nums;
+        state = "numbers";
+        appendMessage("Введите одно из действий: +, -, *, /", "bot");
+      } else if (["+", "-", "*", "/"].includes(msg)) {
+        if (state !== "numbers") {
+          appendMessage("Сначала введите два числа через команду /number:", "bot");
+          return;
+        }
+        let result;
+        switch (msg) {
+          case "+": result = numbers[0] + numbers[1]; break;
+          case "-": result = numbers[0] - numbers[1]; break;
+          case "*": result = numbers[0] * numbers[1]; break;
+          case "/": result = numbers[1] !== 0 ? numbers[0] / numbers[1] : "На ноль делить нельзя"; break;
+        }
+        appendMessage(`Результат: ${result}`, "bot");
+        state = "named";
+      } else if (msg === "/stop") {
+        state = "idle";
+        appendMessage("Всего доброго, если хочешь поговорить пиши /start", "bot");
+      } else {
+        appendMessage("Я не понимаю, введите другую команду!", "bot");
+      }
+    }
+  </script>
+</body>
+</html>
